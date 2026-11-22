@@ -719,9 +719,9 @@ Add-Type -AssemblyName System.Drawing
 $Form = New-Object System.Windows.Forms.Form
 $Form.ClientSize = New-Object System.Drawing.Point(680, 980)
 $Form.StartPosition = 'CenterScreen'
-$Form.FormBorderStyle = 'FixedSingle'
+$Form.FormBorderStyle = 'Sizable''
 $Form.MinimizeBox = $false
-$Form.MaximizeBox = $false
+$Form.MaximizeBox = $true
 $Form.ShowIcon = $false
 $Form.Text = "Windows Optimizer v$global:ScriptVersion - $global:WindowsVersion"
 $Form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#252525")
