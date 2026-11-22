@@ -13,7 +13,6 @@ $global:RepairTimer = $null
 $global:InstallRunning = $false
 $global:LogTextBox = $null
 
-# Función para verificar y solicitar elevación
 function Test-AdminElevation {
     $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
     $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -380,12 +379,14 @@ function Kill-HungProcesses {
     Write-Log "========== COMPLETADO ==========" "OK"
 }
 
+# --- INICIO DE LA INTERFAZ GRAFICA ---
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $Form = New-Object System.Windows.Forms.Form
-$Form.ClientSize = New-Object System.Drawing.Point(680, 850)
+$Form.ClientSize = New-Object System.Drawing.Point(700, 700) # Un poco más ancho para el scroll
+$Form.MinimumSize = New-Object System.Drawing.Size(700, 500) # Tamaño mínimo
 $Form.StartPosition = 'CenterScreen'
 $Form.FormBorderStyle = 'Sizable'
 $Form.MinimizeBox = $true
@@ -393,6 +394,13 @@ $Form.MaximizeBox = $true
 $Form.ShowIcon = $false
 $Form.Text = "Windows Optimizer v$global:ScriptVersion - $global:WindowsVersion"
 $Form.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#252525")
+
+# --- PANEL CON SCROLL (AUTO-SCROLL) ---
+$MainScrollPanel = New-Object System.Windows.Forms.Panel
+$MainScrollPanel.Dock = 'Fill'
+$MainScrollPanel.AutoScroll = $true
+$MainScrollPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#252525")
+$Form.Controls.Add($MainScrollPanel)
 
 # Panel Debloat
 $DebloatPanel = New-Object System.Windows.Forms.Panel
@@ -484,7 +492,6 @@ $BtnFullCleanup.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#777777"
 $BtnFullCleanup.Add_Click({ Invoke-FullCleanup })
 
 $CleanPanel.controls.AddRange(@($CleanLabel, $BtnClearCurrentUser, $BtnClearAllUsers, $BtnClearWindowsTemp, $BtnClearInternetCache, $BtnFullCleanup))
-
 # Panel Instalacion
 $InstallPanel = New-Object System.Windows.Forms.Panel
 $InstallPanel.height = 200; $InstallPanel.width = 660
@@ -529,13 +536,20 @@ $BtnInstall.Add_Click({
     if ($global:InstallRunning) { Write-Log "Ya hay una instalacion en curso" "WARN"; return }
     $apps = @()
     if ($Chk7zip.Checked) { $apps += "7zip" }; if ($ChkChrome.Checked) { $apps += "Chrome" }; if ($ChkFirefox.Checked) { $apps += "Firefox" }; if ($ChkVLC.Checked) { $apps += "VLC" }
+    
+    # Guardamos el estado antes de desmarcar
+    $haySeleccion = ($apps.Count -gt 0 -or $ChkOneDrive.Checked -or $ChkTeams.Checked)
+    
     if ($apps.Count -gt 0) { Install-SelectedApps -Apps $apps }
     if ($ChkOneDrive.Checked) { Install-OneDrive }
     if ($ChkTeams.Checked) { Write-Log "Abriendo pagina de descarga de Teams..." "INFO"; Start-Process "https://www.microsoft.com/es-mx/microsoft-teams/download-app"; Write-Log "Se ha abierto el navegador para descargar Teams" "OK" }
+    
     $Chk7zip.Checked = $false; $ChkChrome.Checked = $false; $ChkFirefox.Checked = $false; $ChkVLC.Checked = $false; $ChkTeams.Checked = $false; $ChkOneDrive.Checked = $false
-    if ($apps.Count -eq 0 -and -not $ChkOneDrive.Checked -and -not $ChkTeams.Checked) { Write-Log "No se selecciono ninguna aplicacion" "WARN" }
+    
+    if (-not $haySeleccion) { Write-Log "No se selecciono ninguna aplicacion" "WARN" }
 })
 $InstallPanel.controls.AddRange(@($InstallLabel, $WingetStatus, $Chk7zip, $ChkChrome, $ChkFirefox, $ChkVLC, $ChkTeams, $ChkOneDrive, $BtnInstall))
+
 # Panel Herramientas
 $ToolsPanel = New-Object System.Windows.Forms.Panel
 $ToolsPanel.height = 130; $ToolsPanel.width = 660
@@ -606,11 +620,10 @@ $BtnDiskCleanup.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#555555"
 $BtnDiskCleanup.Add_Click({ Run-DiskCleanup })
 
 $ToolsPanel.controls.AddRange(@($ToolsLabel, $BtnOptimize, $BtnRepair, $BtnDisableFirewall, $BtnResetWU, $BtnRestorePoint, $BtnDiskCleanup))
-
-# Panel Control
+# Panel Control (Procesos Bloqueados)
 $ControlPanel = New-Object System.Windows.Forms.Panel
 $ControlPanel.height = 55; $ControlPanel.width = 660
-$ControlPanel.location = New-Object System.Drawing.Point(10, 720) # Movido un poco más arriba
+$ControlPanel.location = New-Object System.Drawing.Point(10, 730)
 $ControlPanel.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#252525")
 
 $BtnKillProcesses = New-Object System.Windows.Forms.Button
@@ -624,34 +637,34 @@ $BtnKillProcesses.Add_Click({ Kill-HungProcesses })
 
 $ControlPanel.controls.Add($BtnKillProcesses)
 
-# Boton Cerrar
+# Creditos y Cerrar
+$CreditLabel = New-Object System.Windows.Forms.Label
+$CreditLabel.text = "SAMG27 Windows Optimizer © 2026"; $CreditLabel.AutoSize = $true
+$CreditLabel.location = New-Object System.Drawing.Point(10, 795)
+$CreditLabel.Font = New-Object System.Drawing.Font('Consolas', 9, [System.Drawing.FontStyle]::Italic)
+$CreditLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#888888")
+
 $BtnClose = New-Object System.Windows.Forms.Button
 $BtnClose.FlatStyle = 'Flat'; $BtnClose.text = "CERRAR PROGRAMA"
 $BtnClose.width = 650; $BtnClose.height = 35
-$BtnClose.location = New-Object System.Drawing.Point(10, 780) # Movido abajo del panel de control
+$BtnClose.location = New-Object System.Drawing.Point(10, 820)
 $BtnClose.Font = New-Object System.Drawing.Font('Consolas', 9, [System.Drawing.FontStyle]::Bold)
 $BtnClose.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#eeeeee")
 $BtnClose.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#aa3333")
 $BtnClose.Add_Click({ $Form.Close() })
 
-# Creditos
-$CreditLabel = New-Object System.Windows.Forms.Label
-$CreditLabel.text = "SAMG27 Windows Optimizer © 2026"; $CreditLabel.AutoSize = $true
-$CreditLabel.location = New-Object System.Drawing.Point(10, 820) # Movido abajo del boton cerrar
-$CreditLabel.Font = New-Object System.Drawing.Font('Consolas', 9, [System.Drawing.FontStyle]::Italic)
-$CreditLabel.ForeColor = [System.Drawing.ColorTranslator]::FromHtml("#888888")
-
-# Panel de Log (Ajustado para que quepa sin encimarse)
+# Panel de Log
 $global:LogTextBox = New-Object System.Windows.Forms.RichTextBox
-$global:LogTextBox.Location = New-Object System.Drawing.Point(10, 830) # Movido al final
-$global:LogTextBox.Size = New-Object System.Drawing.Size(660, 60) # Reducido para que quepa
+$global:LogTextBox.Location = New-Object System.Drawing.Point(10, 865)
+$global:LogTextBox.Size = New-Object System.Drawing.Size(660, 100)
 $global:LogTextBox.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#1a1a1a")
 $global:LogTextBox.ForeColor = [System.Drawing.Color]::LightGreen
 $global:LogTextBox.Font = New-Object System.Drawing.Font("Consolas", 8)
 $global:LogTextBox.ReadOnly = $true
 $global:LogTextBox.ScrollBars = 'Vertical'
 
-$Form.Controls.AddRange(@($DebloatPanel, $CleanPanel, $InstallPanel, $ToolsPanel, $ControlPanel, $BtnClose, $CreditLabel, $global:LogTextBox))
+# AÑADIR TODOS LOS PANELES AL PANEL CON SCROLL (NO AL FORM)
+$MainScrollPanel.Controls.AddRange(@($DebloatPanel, $CleanPanel, $InstallPanel, $ToolsPanel, $ControlPanel, $CreditLabel, $BtnClose, $global:LogTextBox))
 
 # Timer para actualizar UI
 $updateTimer = New-Object System.Windows.Forms.Timer
